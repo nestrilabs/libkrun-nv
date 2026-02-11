@@ -31,8 +31,9 @@ use rutabaga_gfx::{
 };
 #[cfg(target_os = "linux")]
 use rutabaga_gfx::{
-    RUTABAGA_CHANNEL_TYPE_PW, RUTABAGA_CHANNEL_TYPE_X11, RUTABAGA_MAP_ACCESS_MASK,
-    RUTABAGA_MAP_ACCESS_READ, RUTABAGA_MAP_ACCESS_RW, RUTABAGA_MAP_ACCESS_WRITE,
+    RUTABAGA_CHANNEL_TYPE_DBUS_CLIENT, RUTABAGA_CHANNEL_TYPE_PW, RUTABAGA_CHANNEL_TYPE_X11,
+    RUTABAGA_MAP_ACCESS_MASK, RUTABAGA_MAP_ACCESS_READ, RUTABAGA_MAP_ACCESS_RW,
+    RUTABAGA_MAP_ACCESS_WRITE,
 };
 #[cfg(target_os = "macos")]
 use utils::worker_message::WorkerMessage;
@@ -255,6 +256,13 @@ impl VirtioGpu {
             rutabaga_channels.push(RutabagaChannel {
                 base_channel: pw_path,
                 channel_type: RUTABAGA_CHANNEL_TYPE_PW,
+            });
+        }
+        #[cfg(target_os = "linux")]
+        if let Ok(dbus_client_path) = env::var("RUTABAGA_DBUS_CLIENT_SOCKET") {
+            rutabaga_channels.push(RutabagaChannel {
+                base_channel: PathBuf::from(dbus_client_path),
+                channel_type: RUTABAGA_CHANNEL_TYPE_DBUS_CLIENT,
             });
         }
         let rutabaga_channels_opt = Some(rutabaga_channels);
