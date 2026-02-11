@@ -24,6 +24,8 @@ pub const CROSS_DOMAIN_CMD_FUTEX_SIGNAL: u8 = 9;
 pub const CROSS_DOMAIN_CMD_FUTEX_DESTROY: u8 = 10;
 pub const CROSS_DOMAIN_CMD_READ_EVENTFD_NEW: u8 = 11;
 pub const CROSS_DOMAIN_CMD_READ_EVENTFD_DESTROY: u8 = 12;
+pub const CROSS_DOMAIN_CMD_REGULAR_FILE_NEW: u8 = 13;
+pub const CROSS_DOMAIN_CMD_REGULAR_FILE_DESTROY: u8 = 14;
 
 /// Channel types (must match rutabaga channel types)
 pub const CROSS_DOMAIN_CHANNEL_TYPE_WAYLAND: u32 = 0x0001;
@@ -47,6 +49,7 @@ pub const CROSS_DOMAIN_ID_TYPE_WRITE_PIPE: u32 = 4;
 
 pub const CROSS_DOMAIN_ID_TYPE_SHM: u32 = 5;
 pub const CROSS_DOMAIN_ID_TYPE_EVENTFD: u32 = 6;
+pub const CROSS_DOMAIN_ID_TYPE_REGULAR_FILE: u32 = 7;
 
 /// No ring
 pub const CROSS_DOMAIN_RING_NONE: u32 = 0xffffffff;
@@ -246,4 +249,14 @@ pub struct CrossDomainReadEventfdNew {
     pub hdr: CrossDomainHeader,
     pub id: u32,
     pub pad: u32,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Default, IntoBytes, Immutable, FromBytes)]
+pub struct CrossDomainRegularFileNew {
+    pub hdr: CrossDomainHeader,
+    pub fs_id: u64,
+    pub handle: u64,
+    pub id: u32,
+    pub flags: u32,
 }

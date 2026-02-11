@@ -38,7 +38,8 @@ use super::super::CrossDomainState;
 use super::epoll_internal::Epoll;
 use super::epoll_internal::EpollEvent;
 use crate::cross_domain::cross_domain_protocol::{
-    CrossDomainInitV1, CrossDomainSendReceiveBase, CROSS_DOMAIN_ID_TYPE_SHM,
+    CrossDomainInitV1, CrossDomainSendReceiveBase, CROSS_DOMAIN_ID_TYPE_REGULAR_FILE,
+    CROSS_DOMAIN_ID_TYPE_SHM,
 };
 use crate::cross_domain::CrossDomainEvent;
 use crate::cross_domain::CrossDomainToken;
@@ -142,7 +143,7 @@ impl CrossDomainContext {
     ) -> RutabagaResult<()> {
         let mut descriptors = [0; MAX_IDENTIFIERS];
 
-        let mut write_pipe_opt: Option<File> = None;
+        let mut files_to_drop: Vec<File> = Vec::new();
         let mut read_pipe_id_opt: Option<u32> = None;
 
         let num_identifiers = (*cmd_send.num_identifiers_mut()).try_into()?;
@@ -172,12 +173,6 @@ impl CrossDomainContext {
                     return Err(RutabagaError::InvalidRutabagaHandle);
                 }
             } else if *identifier_type == CROSS_DOMAIN_ID_TYPE_READ_PIPE {
-                // In practice, just 1 pipe pair per send is observed.  If we encounter
-                // more, this can be changed later.
-                if write_pipe_opt.is_some() {
-                    return Err(RutabagaError::SpecViolation("expected just one pipe pair"));
-                }
-
                 let (raw_read_pipe, raw_write_pipe) = pipe()?;
                 let read_pipe = File::from(raw_read_pipe);
                 let write_pipe = File::from(raw_write_pipe);
@@ -198,11 +193,20 @@ impl CrossDomainContext {
 
                 // The write pipe needs to be dropped after the send_msg(..) call is complete, so the read pipe
                 // can receive subsequent hang-up events.
-                write_pipe_opt = Some(write_pipe);
+                files_to_drop.push(write_pipe);
                 read_pipe_id_opt = Some(read_pipe_id);
             } else if *identifier_type == CROSS_DOMAIN_ID_TYPE_SHM {
                 if let Some(ftx) = self.futexes.lock().unwrap().get(identifier) {
                     *descriptor = ftx.handle.as_raw_descriptor();
+                } else {
+                    return Err(RutabagaError::InvalidCrossDomainItemId);
+                }
+            } else if *identifier_type == CROSS_DOMAIN_ID_TYPE_REGULAR_FILE {
+                if let Some(CrossDomainItem::RegularFile(file)) =
+                    self.item_state.lock().unwrap().table.remove(identifier)
+                {
+                    *descriptor = file.as_raw_descriptor();
+                    files_to_drop.push(file);
                 } else {
                     return Err(RutabagaError::InvalidCrossDomainItemId);
                 }

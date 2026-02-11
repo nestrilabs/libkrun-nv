@@ -95,6 +95,7 @@ pub(crate) enum CrossDomainItem {
     WaylandReadPipe(File),
     WaylandWritePipe(File),
     Eventfd(File),
+    RegularFile(File),
 }
 
 pub(crate) enum CrossDomainJob {
@@ -964,6 +965,34 @@ impl CrossDomainContext {
         }
     }
 
+    fn regular_file_new(
+        &mut self,
+        cmd_regular_new: &CrossDomainRegularFileNew,
+    ) -> RutabagaResult<()> {
+        let mut items = self.item_state.lock().unwrap();
+        let exports = self
+            .export_table
+            .as_ref()
+            .ok_or(RutabagaError::InvalidCrossDomainItemId)?
+            .lock()
+            .unwrap();
+
+        if items.table.contains_key(&cmd_regular_new.id) {
+            return Err(RutabagaError::AlreadyInUse);
+        }
+
+        let file = exports
+            .get(&(cmd_regular_new.fs_id, cmd_regular_new.handle))
+            .ok_or(RutabagaError::InvalidCrossDomainItemId)?
+            .try_clone()?;
+
+        items
+            .table
+            .insert(cmd_regular_new.id, CrossDomainItem::RegularFile(file));
+
+        Ok(())
+    }
+
     fn write(&self, cmd_write: &CrossDomainReadWrite, opaque_data: &[u8]) -> RutabagaResult<()> {
         let mut items = self.item_state.lock().unwrap();
 
@@ -1272,6 +1301,12 @@ impl RutabagaContext for CrossDomainContext {
                         CrossDomainReadEventfdNew::read_from_prefix(commands.as_bytes())
                             .map_err(|_| RutabagaError::InvalidCommandBuffer)?;
                     self.read_eventfd_new(&cmd_new_efd)?;
+                }
+                CROSS_DOMAIN_CMD_REGULAR_FILE_NEW => {
+                    let (cmd_new_regular, _) =
+                        CrossDomainRegularFileNew::read_from_prefix(commands.as_bytes())
+                            .map_err(|_| RutabagaError::InvalidCommandBuffer)?;
+                    self.regular_file_new(&cmd_new_regular)?;
                 }
                 _ => return Err(RutabagaError::SpecViolation("invalid cross domain command")),
             }
