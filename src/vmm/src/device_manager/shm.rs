@@ -7,6 +7,7 @@ use vmm_sys_util::align_upwards;
 #[derive(Debug)]
 pub enum Error {
     DuplicatedGpuRegion,
+    DuplicatedGpuNvRegion,
     OutOfSpace,
 }
 
@@ -21,6 +22,7 @@ pub struct ShmManager {
     page_size: usize,
     fs_regions: BTreeMap<usize, ShmRegion>,
     gpu_region: Option<ShmRegion>,
+    gpu_nv_region: Option<ShmRegion>,
 }
 
 impl ShmManager {
@@ -30,6 +32,7 @@ impl ShmManager {
             page_size: info.page_size,
             fs_regions: BTreeMap::new(),
             gpu_region: None,
+            gpu_nv_region: None,
         }
     }
 
@@ -41,6 +44,10 @@ impl ShmManager {
         }
 
         if let Some(region) = &self.gpu_region {
+            regions.push((region.guest_addr, region.size));
+        }
+
+        if let Some(region) = &self.gpu_nv_region {
             regions.push((region.guest_addr, region.size));
         }
 
@@ -78,6 +85,19 @@ impl ShmManager {
             Err(Error::DuplicatedGpuRegion)
         } else {
             self.gpu_region = Some(self.create_region(size)?);
+            Ok(())
+        }
+    }
+
+    pub fn gpu_nv_region(&self) -> Option<&ShmRegion> {
+        self.gpu_nv_region.as_ref()
+    }
+
+    pub fn create_gpu_nv_region(&mut self, size: usize) -> Result<(), Error> {
+        if self.gpu_nv_region.is_some() {
+            Err(Error::DuplicatedGpuNvRegion)
+        } else {
+            self.gpu_nv_region = Some(self.create_region(size)?);
             Ok(())
         }
     }

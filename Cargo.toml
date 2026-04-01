@@ -1,6 +1,6 @@
 [workspace]
 members = ["src/libkrun", "src/krun_input"]
-exclude = ["examples/gtk_display"]
+exclude = ["examples/gtk_display", "virtio-gpu-nv"]
 resolver = "2"
 
 [profile.dev]

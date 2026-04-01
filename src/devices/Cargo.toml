@@ -35,6 +35,8 @@ zerocopy = { version = "0.8.26", optional = true, features = ["derive"] }
 krun_display = { path = "../krun_display", optional = true, features = ["bindgen_clang_runtime"] }
 krun_input = { path = "../krun_input", features = ["bindgen_clang_runtime"], optional = true }
 
+virtio-gpu-nv-device = { package = "device", path = "../../virtio-gpu-nv/crates/device" }
+
 arch = { path = "../arch" }
 utils = { path = "../utils" }
 polly = { path = "../polly" }

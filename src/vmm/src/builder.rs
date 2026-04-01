@@ -201,6 +201,7 @@ pub enum StartMicrovmError {
     RegisterFsSigwinch(kvm_ioctls::Error),
     /// Cannot initialize a MMIO Gpu device or add a device to the MMIO Bus.
     RegisterGpuDevice(device_manager::mmio::Error),
+    RegisterGpuNvDevice(device_manager::mmio::Error),
     /// Cannot initialize a MMIO Input device or add a device to the MMIO Bus.
     RegisterInputDevice(device_manager::mmio::Error),
     /// Cannot initialize a MMIO Network Device or add a device to the MMIO Bus.
@@ -428,6 +429,14 @@ impl Display for StartMicrovmError {
                     "Cannot initialize a MMIO Gpu Device or add a device to the MMIO Bus. {err_msg}"
                 )
             }
+            RegisterGpuNvDevice(ref err) => {
+                let mut err_msg = format!("{err}");
+                err_msg = err_msg.replace('\"', "");
+                write!(
+                    f,
+                    "Cannot register gpu-nv device: {err_msg}"
+                )
+            }
             RegisterInputDevice(ref err) => {
                 let mut err_msg = format!("{err}");
                 err_msg = err_msg.replace('\"', "");
@@ -568,7 +577,7 @@ pub fn build_microvm(
 ) -> std::result::Result<Arc<Mutex<Vmm>>, StartMicrovmError> {
     let payload = choose_payload(vm_resources)?;
 
-    let (guest_memory, arch_memory_info, mut _shm_manager, payload_config) = create_guest_memory(
+    let (guest_memory, arch_memory_info, mut shm_manager, payload_config) = create_guest_memory(
         vm_resources
             .vm_config()
             .mem_size_mib
@@ -1013,7 +1022,7 @@ pub fn build_microvm(
 
         attach_gpu_device(
             &mut vmm,
-            &mut _shm_manager,
+            &mut shm_manager,
             #[cfg(not(feature = "tee"))]
             export_table.clone(),
             intc.clone(),
@@ -1023,6 +1032,8 @@ pub fn build_microvm(
             #[cfg(target_os = "macos")]
             _sender.clone(),
         )?;
+
+        attach_gpu_nv_device(&mut vmm, &mut shm_manager, intc.clone())?;
     }
 
     #[cfg(feature = "input")]
@@ -1034,7 +1045,7 @@ pub fn build_microvm(
     attach_fs_devices(
         &mut vmm,
         &vm_resources.fs,
-        &mut _shm_manager,
+        &mut shm_manager,
         #[cfg(not(feature = "tee"))]
         export_table,
         intc.clone(),
@@ -2292,6 +2303,42 @@ fn attach_gpu_device(
 
     // The device mutex mustn't be locked here otherwise it will deadlock.
     attach_mmio_device(vmm, id, intc, gpu).map_err(RegisterGpuDevice)?;
+
+    Ok(())
+}
+
+#[cfg(feature = "gpu")]
+#[allow(clippy::too_many_arguments)]
+fn attach_gpu_nv_device(
+    vmm: &mut Vmm,
+    shm_manager: &mut ShmManager,
+    intc: IrqChip,
+) -> std::result::Result<(), StartMicrovmError> {
+    use self::StartMicrovmError::*;
+    use virtio_gpu_nv_device::shm::ZoneConfig;
+
+    let cfg = ZoneConfig::default_256mib();
+    let shm_size = cfg.total() as usize;
+
+    let gpu_nv = Arc::new(Mutex::new(
+        devices::virtio::gpu_nv::gpu_nv_device::NvGpuDevice::new(cfg),
+    ));
+
+    // Allocate a SHM region in the guest physical address space.
+    shm_manager
+        .create_gpu_nv_region(shm_size)
+        .map_err(|_| RegisterGpuNvDevice(device_manager::mmio::Error::DeviceNotFound))?;
+
+    if let Some(shm_region) = shm_manager.gpu_nv_region() {
+        gpu_nv.lock().unwrap().set_shm_region(VirtioShmRegion {
+            host_addr: gpu_nv.lock().unwrap().shm_base_ptr() as u64,
+            guest_addr: shm_region.guest_addr.raw_value(),
+            size: shm_region.size,
+        });
+    }
+
+    let id = String::from("virtio_gpu_nv");
+    attach_mmio_device(vmm, id, intc, gpu_nv).map_err(RegisterGpuNvDevice)?;
 
     Ok(())
 }

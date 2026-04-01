@@ -28,6 +28,8 @@ vmm-sys-util = ">=0.14"
 krun_display = { path = "../krun_display", optional = true, features = ["bindgen_clang_runtime"] }
 krun_input = { path = "../krun_input", optional = true, features = ["bindgen_clang_runtime"] }
 
+virtio-gpu-nv-device = { package = "device", path = "../../virtio-gpu-nv/crates/device" }
+
 arch = { path = "../arch" }
 arch_gen = { path = "../arch_gen" }
 devices = { path = "../devices" }

@@ -1,0 +1,4 @@
+[submodule "virtio-gpu-nv"]
+	path = virtio-gpu-nv
+	url = https://github.com/nestrilabs/virtio-gpu-nv.git
+	branch = feat/init
