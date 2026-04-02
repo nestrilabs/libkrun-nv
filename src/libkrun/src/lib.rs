@@ -160,6 +160,7 @@ struct ContextConfig {
     shutdown_efd: Option<EventFd>,
     gpu_virgl_flags: Option<u32>,
     gpu_shm_size: Option<usize>,
+    gpu_nv_enabled: bool,
     enable_snd: bool,
     console_output: Option<PathBuf>,
     vmm_uid: Option<libc::uid_t>,
@@ -2670,6 +2671,7 @@ pub extern "C" fn krun_start_enter(ctx_id: u32) -> i32 {
     if let Some(shm_size) = ctx_cfg.gpu_shm_size {
         ctx_cfg.vmr.set_gpu_shm_size(shm_size);
     }
+    ctx_cfg.vmr.set_gpu_nv_enabled(ctx_cfg.gpu_nv_enabled);
 
     #[cfg(feature = "snd")]
     ctx_cfg.vmr.set_snd_device(ctx_cfg.enable_snd);

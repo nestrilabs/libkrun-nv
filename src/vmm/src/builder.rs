@@ -432,10 +432,7 @@ impl Display for StartMicrovmError {
             RegisterGpuNvDevice(ref err) => {
                 let mut err_msg = format!("{err}");
                 err_msg = err_msg.replace('\"', "");
-                write!(
-                    f,
-                    "Cannot register gpu-nv device: {err_msg}"
-                )
+                write!(f, "Cannot register gpu-nv device: {err_msg}")
             }
             RegisterInputDevice(ref err) => {
                 let mut err_msg = format!("{err}");
@@ -1033,7 +1030,10 @@ pub fn build_microvm(
             _sender.clone(),
         )?;
 
-        attach_gpu_nv_device(&mut vmm, &mut shm_manager, intc.clone())?;
+        // Only attach gpu-nv if explicitly requested
+        //if vm_resources.gpu_nv_enabled {
+            attach_gpu_nv_device(&mut vmm, &mut shm_manager, intc.clone())?;
+        //}
     }
 
     #[cfg(feature = "input")]
@@ -2317,6 +2317,8 @@ fn attach_gpu_nv_device(
     use self::StartMicrovmError::*;
     use virtio_gpu_nv_device::shm::ZoneConfig;
 
+    log::info!("gpu-nv: creating device...");
+
     let cfg = ZoneConfig::default_256mib();
     let shm_size = cfg.total() as usize;
 
@@ -2324,21 +2326,37 @@ fn attach_gpu_nv_device(
         devices::virtio::gpu_nv::gpu_nv_device::NvGpuDevice::new(cfg),
     ));
 
+    log::info!(
+        "gpu-nv: device created, allocating SHM region ({} MiB)...",
+        shm_size / (1024 * 1024)
+    );
+
     // Allocate a SHM region in the guest physical address space.
-    shm_manager
-        .create_gpu_nv_region(shm_size)
-        .map_err(|_| RegisterGpuNvDevice(device_manager::mmio::Error::DeviceNotFound))?;
+    shm_manager.create_gpu_nv_region(shm_size).map_err(|e| {
+        log::error!("gpu-nv: SHM region allocation failed: {:?}", e);
+        RegisterGpuNvDevice(device_manager::mmio::Error::DeviceNotFound)
+    })?;
 
     if let Some(shm_region) = shm_manager.gpu_nv_region() {
+        log::info!(
+            "gpu-nv: SHM region at GPA {:#x}, size {:#x}",
+            shm_region.guest_addr.raw_value(),
+            shm_region.size
+        );
+        let base_ptr = gpu_nv.lock().unwrap().shm_base_ptr() as u64;
         gpu_nv.lock().unwrap().set_shm_region(VirtioShmRegion {
-            host_addr: gpu_nv.lock().unwrap().shm_base_ptr() as u64,
+            host_addr: base_ptr,
             guest_addr: shm_region.guest_addr.raw_value(),
             size: shm_region.size,
         });
+    } else {
+        log::error!("gpu-nv: SHM region was None after creation");
     }
 
     let id = String::from("virtio_gpu_nv");
+    log::info!("gpu-nv: attaching MMIO device...");
     attach_mmio_device(vmm, id, intc, gpu_nv).map_err(RegisterGpuNvDevice)?;
+    log::info!("gpu-nv: device attached successfully");
 
     Ok(())
 }
