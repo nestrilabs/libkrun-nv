@@ -128,7 +128,7 @@ dependencies = [
  "smbios",
  "tdx",
  "utils",
- "vm-memory 0.16.2",
+ "vm-memory",
  "vmm-sys-util 0.14.0",
 ]
 
@@ -500,14 +500,11 @@ dependencies = [
  "anyhow",
  "clap",
  "libc",
- "log",
- "nix 0.31.2",
  "protocol",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
  "tracing-subscriber",
- "vm-memory 0.18.0",
 ]
 
 [[package]]
@@ -539,7 +536,7 @@ dependencies = [
  "utils",
  "virtio-bindings",
  "vm-fdt",
- "vm-memory 0.16.2",
+ "vm-memory",
  "zerocopy",
 ]
 
@@ -786,7 +783,7 @@ dependencies = [
  "rustc_version",
  "tokio",
  "tracing",
- "vm-memory 0.16.2",
+ "vm-memory",
  "windows-sys 0.61.2",
 ]
 
@@ -891,7 +888,7 @@ name = "kernel"
 version = "0.1.0"
 dependencies = [
  "utils",
- "vm-memory 0.16.2",
+ "vm-memory",
 ]
 
 [[package]]
@@ -977,7 +974,7 @@ dependencies = [
  "polly",
  "rand",
  "utils",
- "vm-memory 0.16.2",
+ "vm-memory",
  "vmm",
 ]
 
@@ -1036,7 +1033,7 @@ version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "870c3814345f050991f99869417779f6062542bcf4ed81db7a1b926ad1306638"
 dependencies = [
- "vm-memory 0.16.2",
+ "vm-memory",
 ]
 
 [[package]]
@@ -1202,18 +1199,6 @@ dependencies = [
  "cfg_aliases",
  "libc",
  "memoffset 0.9.1",
-]
-
-[[package]]
-name = "nix"
-version = "0.31.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d6d0705320c1e6ba1d912b5e37cf18071b6c2e9b7fa8215a1e8a7651966f5d3"
-dependencies = [
- "bitflags 2.10.0",
- "cfg-if",
- "cfg_aliases",
- "libc",
 ]
 
 [[package]]
@@ -1660,7 +1645,7 @@ checksum = "8917285742e9f3e1683f0a9c4e6b57960b7314d0b08d30d1ecd426713ee2eee9"
 name = "smbios"
 version = "0.1.0"
 dependencies = [
- "vm-memory 0.16.2",
+ "vm-memory",
 ]
 
 [[package]]
@@ -2041,17 +2026,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "vm-memory"
-version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b55e753c7725603745cb32b2287ef7ef3da05c03c7702cda3fa8abe25ae0465"
-dependencies = [
- "libc",
- "thiserror 2.0.18",
- "winapi",
-]
-
-[[package]]
 name = "vmm"
 version = "0.1.0"
 dependencies = [
@@ -2082,7 +2056,7 @@ dependencies = [
  "serde_json",
  "tdx",
  "utils",
- "vm-memory 0.16.2",
+ "vm-memory",
  "vmm-sys-util 0.14.0",
  "zstd",
 ]
