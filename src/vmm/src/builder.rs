@@ -1031,8 +1031,9 @@ pub fn build_microvm(
         )?;
 
         // Only attach gpu-nv if explicitly requested
+        // TODO: Wire this up to muvm
         //if vm_resources.gpu_nv_enabled {
-            attach_gpu_nv_device(&mut vmm, &mut shm_manager, intc.clone())?;
+        attach_gpu_nv_device(&mut vmm, &mut shm_manager, intc.clone())?;
         //}
     }
 
@@ -1501,10 +1502,21 @@ pub fn create_guest_memory(
                 .map_err(StartMicrovmError::ShmCreate)?;
         }
     }
+    #[cfg(feature = "gpu")]
     if vm_resources.gpu_virgl_flags.is_some() {
         let size = vm_resources.gpu_shm_size.unwrap_or(1 << 33);
         shm_manager
             .create_gpu_region(size)
+            .map_err(StartMicrovmError::ShmCreate)?;
+    }
+    #[cfg(feature = "gpu")]
+    if vm_resources.gpu_virgl_flags.is_some() {
+        // Pre-allocate gpu-nv SHM so it's included in KVM memslots.
+        // The device itself is attached later in attach_gpu_nv_device().
+        use virtio_gpu_nv_device::shm::ZoneConfig;
+        let nv_shm_size = ZoneConfig::default_256mib().total() as usize;
+        shm_manager
+            .create_gpu_nv_region(nv_shm_size)
             .map_err(StartMicrovmError::ShmCreate)?;
     }
 
@@ -2320,37 +2332,37 @@ fn attach_gpu_nv_device(
     log::info!("gpu-nv: creating device...");
 
     let cfg = ZoneConfig::default_256mib();
-    let shm_size = cfg.total() as usize;
 
     let gpu_nv = Arc::new(Mutex::new(
         devices::virtio::gpu_nv::gpu_nv_device::NvGpuDevice::new(cfg),
     ));
 
-    log::info!(
-        "gpu-nv: device created, allocating SHM region ({} MiB)...",
-        shm_size / (1024 * 1024)
-    );
-
-    // Allocate a SHM region in the guest physical address space.
-    shm_manager.create_gpu_nv_region(shm_size).map_err(|e| {
-        log::error!("gpu-nv: SHM region allocation failed: {:?}", e);
-        RegisterGpuNvDevice(device_manager::mmio::Error::DeviceNotFound)
-    })?;
-
+    // Region was already created in create_guest_memory().
     if let Some(shm_region) = shm_manager.gpu_nv_region() {
         log::info!(
             "gpu-nv: SHM region at GPA {:#x}, size {:#x}",
             shm_region.guest_addr.raw_value(),
             shm_region.size
         );
-        let base_ptr = gpu_nv.lock().unwrap().shm_base_ptr() as u64;
+        let host_addr = vmm
+            .guest_memory
+            .get_host_address(shm_region.guest_addr)
+            .map_err(StartMicrovmError::ShmHostAddr)? as u64;
+
+        log::info!(
+            "gpu-nv: SHM HVA={:#x} GPA={:#x} size={:#x}",
+            host_addr,
+            shm_region.guest_addr.raw_value(),
+            shm_region.size
+        );
+
         gpu_nv.lock().unwrap().set_shm_region(VirtioShmRegion {
-            host_addr: base_ptr,
+            host_addr,
             guest_addr: shm_region.guest_addr.raw_value(),
             size: shm_region.size,
         });
     } else {
-        log::error!("gpu-nv: SHM region was None after creation");
+        log::error!("gpu-nv: SHM region was None — not pre-allocated in create_guest_memory?");
     }
 
     let id = String::from("virtio_gpu_nv");

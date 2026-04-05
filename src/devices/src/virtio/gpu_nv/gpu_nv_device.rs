@@ -26,11 +26,11 @@ use virtio_gpu_nv_device::shm::ZoneConfig;
 // Re-export libkrun virtio types used by our public API
 // ---------------------------------------------------------------------------
 
+use crate::virtio::descriptor_utils::{Reader, Writer};
 use crate::virtio::{
     ActivateError, ActivateResult, DeviceQueue, DeviceState, InterruptTransport,
     Queue as VirtQueue, QueueConfig, VirtioDevice, VirtioShmRegion,
 };
-use crate::virtio::descriptor_utils::{Reader, Writer};
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -55,7 +55,7 @@ static QUEUE_CONFIG: [QueueConfig; NUM_QUEUES] = [QueueConfig::new(QUEUE_SIZE)];
 /// Exposed to the guest via read_config(). The guest driver can read the
 /// SHM BAR GPA from here to set up nv_mmap().
 #[derive(Clone, Copy, Debug, Default)]
-#[repr(C)]
+#[repr(C, packed)]
 struct NvGpuConfig {
     /// Number of GPU devices available (0..MAX_GPU).
     num_gpus: u32,
@@ -100,21 +100,21 @@ impl NvGpuDevice {
         Self::new(ZoneConfig::default_256mib())
     }
 
-    /// Set the SHM region after the VMM has created the KVM memslot.
-    /// Must be called before the guest boots.
     pub fn set_shm_region(&mut self, region: VirtioShmRegion) {
         self.config.shm_bar_gpa = region.guest_addr;
         self.config.shm_bar_size = region.size as u64;
+        // Point the SHM allocator at the guest memory HVA so MAP_FIXED
+        // operations land in KVM-visible memory.
+        self.backend
+            .lock()
+            .unwrap()
+            .set_shm_base(region.host_addr as *mut u8);
         self.shm_region = Some(region);
     }
 
     /// Get the memfd raw fd for KVM memslot creation.
     pub fn shm_memfd_raw(&self) -> i32 {
         self.backend.lock().unwrap().shm_memfd_raw()
-    }
-
-    pub fn shm_base_ptr(&self) -> *mut u8 {
-        self.backend.lock().unwrap().shm_base_ptr()
     }
 
     /// Teardown: close all host fds.
@@ -318,11 +318,12 @@ impl NvWorker {
             }
 
             let written = writer.bytes_written() as u32;
-            if let Err(e) = self.queue.lock().unwrap().add_used(
-                &self.mem,
-                desc_index,
-                written,
-            ) {
+            if let Err(e) = self
+                .queue
+                .lock()
+                .unwrap()
+                .add_used(&self.mem, desc_index, written)
+            {
                 error!("gpu-nv: failed to add used: {:?}", e);
             }
 
