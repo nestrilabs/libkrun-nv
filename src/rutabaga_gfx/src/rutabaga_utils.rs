@@ -359,6 +359,7 @@ const VIRGLRENDERER_NO_VIRGL: u32 = 1 << 7;
 const VIRGLRENDERER_USE_ASYNC_FENCE_CB: u32 = 1 << 8;
 const VIRGLRENDERER_RENDER_SERVER: u32 = 1 << 9;
 const VIRGLRENDERER_DRM: u32 = 1 << 10;
+const VIRGLRENDERER_NV: u32 = 1 << 11;
 
 /// virglrenderer flag struct.
 #[derive(Copy, Clone)]
@@ -454,6 +455,16 @@ impl VirglRendererFlags {
 
     pub fn use_render_server(self, v: bool) -> VirglRendererFlags {
         self.set_flag(VIRGLRENDERER_RENDER_SERVER, v)
+    }
+
+    /// Enable virtio-gpu-nv NVIDIA GPU proxy
+    pub fn use_nv(self, v: bool) -> VirglRendererFlags {
+        self.set_flag(VIRGLRENDERER_NV, v)
+    }
+
+    /// Check if virtio-gpu-nv flag is set
+    pub fn has_nv(&self) -> bool {
+        self.0 & VIRGLRENDERER_NV != 0
     }
 }
 

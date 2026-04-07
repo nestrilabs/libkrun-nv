@@ -552,6 +552,7 @@ int32_t krun_set_port_map(uint32_t ctx_id, const char *const port_map[]);
 #define VIRGLRENDERER_USE_ASYNC_FENCE_CB 1 << 8
 #define VIRGLRENDERER_RENDER_SERVER 1 << 9
 #define VIRGLRENDERER_DRM 1 << 10
+#define VIRGLRENDERER_NV 1 << 11
 /**
  * Enables and configures a virtio-gpu device.
  *

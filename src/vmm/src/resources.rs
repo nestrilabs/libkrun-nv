@@ -165,8 +165,6 @@ pub struct VmResources {
     pub display_backend: Option<DisplayBackend<'static>>,
     #[cfg(feature = "gpu")]
     pub displays: Vec<DisplayInfo>,
-    #[cfg(feature = "gpu")]
-    pub gpu_nv_enabled: bool,
     #[cfg(feature = "input")]
     pub input_backends: Vec<(
         krun_input::InputConfigBackend<'static>,
@@ -336,10 +334,6 @@ impl VmResources {
         self.gpu_virgl_flags = Some(virgl_flags);
     }
 
-    pub fn set_gpu_nv_enabled(&mut self, enabled: bool) {
-        self.gpu_nv_enabled = enabled;
-    }
-
     pub fn set_gpu_shm_size(&mut self, shm_size: usize) {
         self.gpu_shm_size = Some(shm_size);
     }
@@ -425,8 +419,6 @@ mod tests {
             display_backend: None,
             #[cfg(feature = "gpu")]
             displays: Vec::new(),
-            #[cfg(feature = "gpu")]
-            gpu_nv_enabled: false,
             #[cfg(feature = "input")]
             input_backends: Vec::new(),
             #[cfg(feature = "snd")]

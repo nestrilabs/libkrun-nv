@@ -1030,11 +1030,10 @@ pub fn build_microvm(
             _sender.clone(),
         )?;
 
-        // Only attach gpu-nv if explicitly requested
-        // TODO: Wire this up to muvm
-        //if vm_resources.gpu_nv_enabled {
-        attach_gpu_nv_device(&mut vmm, &mut shm_manager, intc.clone())?;
-        //}
+        // Attach gpu-nv only when VIRGLRENDERER_NV flag is set
+        if virgl_flags & (1 << 11) != 0 {
+            attach_gpu_nv_device(&mut vmm, &mut shm_manager, intc.clone())?;
+        }
     }
 
     #[cfg(feature = "input")]
